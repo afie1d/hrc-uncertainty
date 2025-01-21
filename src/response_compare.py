@@ -3,7 +3,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from dtaidistance import dtw
 
-nlp = spacy.load("en_core_web_sm") 
+# nlp = spacy.load("en_core_web_sm") 
 
 def semantic_similarity(text1, text2, model):
     doc1 = model(text1)
@@ -25,24 +25,11 @@ def dtw_similarity(text1, text2):
 
 
 
-# ***** TESTING *****
+def pairwise_diff(responses, sim_measure_function):
+    diffs = []
+    for i, r in enumerate(responses):
+        for j in range(len(responses)):
+            if i == j: continue
+            diffs.append(sim_measure_function(r, responses[j]))
 
-t1 = "I will pick up the red block, then the green block"
-t2 = "I will pick up the green block, then the yellow block"
-t3 = "I will pick up the screwdriver, then the hammer"
-t4 = "I will not pick up the screwdriver or the hammer"
-t5 = "The headphones fit nicely around my ears"
-
-def test_methods(texts1, texts2):
-    for text1, text2 in zip(texts1, texts2):
-        ss_measure = semantic_similarity(text1, text2, nlp)
-        cs_tfdif_measure = cosine_similarity_tfidf(text1, text2)
-        dtw_measure = dtw_similarity(text1, text2)
-        print("----------------")
-        print(text1, '\n', text2)
-        print("Semantic similarity:", ss_measure)
-        print("TFIDF Similarity:", cs_tfdif_measure)
-
-a = [t1, t3, t5, t1]
-b = [t2, t4, t3, t4]
-test_methods(a, b)
+    return diffs
