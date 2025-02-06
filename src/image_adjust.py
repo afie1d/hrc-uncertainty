@@ -1,8 +1,6 @@
-import tensorflow as tf
 import numpy as np
 import cv2
 import random
-import time
 
 
 # ----------------------------- Non-semantic transforms ------------------------------------
@@ -44,9 +42,9 @@ def non_semantic_transform(img_path, n=16):
 
     for _ in range(n):
         cpy = img.copy()
-        brightness = random.uniform(0.5, 1.5)
-        contrast = random.uniform(0.5, 1.5)
-        saturation = random.uniform(0.5, 1.5)
+        brightness = random.uniform(0.8, 1.2)
+        contrast = random.uniform(0.8, 1.2)
+        saturation = random.uniform(0.8, 1.2)
         cpy = color_jitter(cpy, brightness, contrast, saturation)
 
         angle = random.uniform(-15, 15)
@@ -61,56 +59,72 @@ def non_semantic_transform(img_path, n=16):
 
 # ------------------------------ Semantic Transforms ----------------------------------------
 
-def load_det_model():
-    model = tf.saved_model.load("../models/efficientdet_d7")
-    return model
 
-def blind_blur(img, num_imgs=16, kernel_size=(128, 128)):
+def blur(img, y1, y2, x1, x2, kernel_size=(63, 63)):
+    cpy = img.copy()
+    roi = cpy[y1:y2, x1:x2]
+    blurred_roi = cv2.GaussianBlur(roi, kernel_size, sigmaX=20)
+    cpy[y1:y2, x1:x2] = blurred_roi
+    return cpy
+
+def random_blur(img, num_imgs=16, patch_size=(256, 256)):
     blurred = []
 
     for _ in range(num_imgs):
-        cpy = img.copy()
-        x_start = np.random.randint(0, img.shape[1])
-        y_start = np.random.randint(0, img.shape[0])
+        x1 = np.random.randint(0, img.shape[1])
+        y1 = np.random.randint(0, img.shape[0])
+        y2 = y1 + patch_size[1]
+        x2 = x1 + patch_size[0]
 
-        roi = cpy[y_start:y_start+kernel_size[0], x_start:x_start+kernel_size[1]]
-        blurred_roi = cv2.GaussianBlur(roi, (31, 31), sigmaX=20)
-        cpy[y_start:y_start+kernel_size[0], x_start:x_start+kernel_size[1]] = blurred_roi
-
-        blurred.append(cpy)
+        b = blur(img, y1, y2, x1, x2)
+        blurred.append(b)
 
     return blurred   
- 
-def detect_objects(img, detection_model, conf_threshold=0.5):
-
-    input_tensor = tf.convert_to_tensor(img)
-    input_tensor = input_tensor[tf.newaxis, ...]
-
-    detections = detection_model(input_tensor)
-    detection_scores = detections["detection_scores"].numpy()[0]
-    detection_boxes = detections["detection_boxes"].numpy()[0]
-
-    masks = []
-    for i, score in enumerate(detection_scores):
-        if score >= conf_threshold:
-            box = detection_boxes[i]
-            y1, x1, y2, x2 = int(box[0] * img.shape[0]), int(box[1] * img.shape[1]), int(
-                box[2] * img.shape[0]
-            ), int(box[3] * img.shape[1])
-
-            mask = np.zeros(img.shape[:2], dtype=np.uint8)
-            mask[y1:y2, x1:x2] = 255
-            masks.append(mask)
-
-    return masks
 
 
-def semantic_transform(img_path, n=16):
-    img = cv2.imread(img_path)
-    return blind_blur(img, num_imgs=n)
+def systematic_blur(img, num_rows=4, num_columns=4, patch_size=(256, 256)):
+    blurred = []
+    (h, w) = img.shape[:2]
+    x_spacing = w // num_columns
+    y_spacing = h // num_rows
 
-# Testing
-tfs = semantic_transform('../data/dummy/drift_cars.jpg')
+    for r in range(num_rows):
+        for c in range(num_columns):
+            x1 = min(w - patch_size[1], max(0, x_spacing // 2 + c * patch_size[1] - patch_size[1] // 2))
+            y1 = min(h - patch_size[0], max(0, y_spacing // 2 + r * patch_size[0] - patch_size[0] // 2))
+            x2 = x1 + patch_size[1]
+            y2 = y1 + patch_size[0]
+            
+            try:
+               b = blur(img, y1, y2, x1, x2)
+               blurred.append(b)
+            except:
+                raise BaseException(f"Error occurred. Patch to be blurred: {(y1, y2, x1, x2)}, image shape: {img.shape}")
 
-for i, m in enumerate(tfs):
-    cv2.imwrite(f'../data/dummy/smeg{i}.jpg', m)
+    return blurred
+
+def load_det_model():
+    prototxt_path = "../models/MobileNet/deploy.prototxt"
+    model_path = "../models/MobileNet/mobilenet_iter_73000.caffemodel"
+    return cv2.dnn.readNetFromCaffe(prototxt_path, model_path)
+
+def object_blur(img, detection_model, conf_threshold=0.5):
+
+    (h, w) = img.shape[:2]
+    blob = cv2.dnn.blobFromImage(img, 0.007843, (300, 300), 127.5)
+    detection_model.setInput(blob)
+    detections = detection_model.forward()
+    
+    blurred = []
+
+    for i in range(detections.shape[2]):
+        confidence = detections[0, 0, i, 2]
+
+        if confidence > conf_threshold:
+            box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
+            (x1, y1, x2, y2) = box.astype("int")
+
+            b = blur(img, y1, y2, x1, x2)
+            blurred.append(b)
+
+    return blurred
