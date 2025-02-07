@@ -1,5 +1,7 @@
 import numpy as np
 import cv2
+import torch
+from segment_anything import sam_model_registry, SamAutomaticMaskGenerator
 import random
 
 
@@ -60,14 +62,20 @@ def non_semantic_transform(img_path, n=16):
 # ------------------------------ Semantic Transforms ----------------------------------------
 
 
-def blur(img, y1, y2, x1, x2, kernel_size=(63, 63)):
+def blur(img, y1, y2, x1, x2, kernel_size=(127, 127), invert=False):
     cpy = img.copy()
     roi = cpy[y1:y2, x1:x2]
-    blurred_roi = cv2.GaussianBlur(roi, kernel_size, sigmaX=20)
-    cpy[y1:y2, x1:x2] = blurred_roi
+
+    if invert:
+        cpy = cv2.GaussianBlur(cpy, kernel_size, sigmaX=40)
+        cpy[y1:y2, x1:x2] = roi
+    else:
+        blurred_roi = cv2.GaussianBlur(roi, kernel_size, sigmaX=40)
+        cpy[y1:y2, x1:x2] = blurred_roi
+
     return cpy
 
-def random_blur(img, num_imgs=16, patch_size=(256, 256)):
+def random_blur(img, num_imgs=16, patch_size=(256, 256), invert=False):
     blurred = []
 
     for _ in range(num_imgs):
@@ -76,13 +84,13 @@ def random_blur(img, num_imgs=16, patch_size=(256, 256)):
         y2 = y1 + patch_size[1]
         x2 = x1 + patch_size[0]
 
-        b = blur(img, y1, y2, x1, x2)
+        b = blur(img, y1, y2, x1, x2, invert=invert)
         blurred.append(b)
 
     return blurred   
 
 
-def systematic_blur(img, num_rows=4, num_columns=4, patch_size=(256, 256)):
+def systematic_blur(img, num_rows=4, num_columns=4, patch_size=(256, 256), invert=False):
     blurred = []
     (h, w) = img.shape[:2]
     x_spacing = w // num_columns
@@ -96,7 +104,7 @@ def systematic_blur(img, num_rows=4, num_columns=4, patch_size=(256, 256)):
             y2 = y1 + patch_size[0]
             
             try:
-               b = blur(img, y1, y2, x1, x2)
+               b = blur(img, y1, y2, x1, x2, invert=invert)
                blurred.append(b)
             except:
                 raise BaseException(f"Error occurred. Patch to be blurred: {(y1, y2, x1, x2)}, image shape: {img.shape}")
@@ -104,27 +112,27 @@ def systematic_blur(img, num_rows=4, num_columns=4, patch_size=(256, 256)):
     return blurred
 
 def load_det_model():
-    prototxt_path = "../models/MobileNet/deploy.prototxt"
-    model_path = "../models/MobileNet/mobilenet_iter_73000.caffemodel"
-    return cv2.dnn.readNetFromCaffe(prototxt_path, model_path)
+    sam_checkpoint = "../models/SAM/sam_vit_h_4b8939.pth"
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    sam = sam_model_registry["vit_h"](checkpoint=sam_checkpoint).to(device)
+    return SamAutomaticMaskGenerator(sam)
 
-def object_blur(img, detection_model, conf_threshold=0.5):
-
-    (h, w) = img.shape[:2]
-    blob = cv2.dnn.blobFromImage(img, 0.007843, (300, 300), 127.5)
-    detection_model.setInput(blob)
-    detections = detection_model.forward()
-    
+def object_blur(img, detection_model, conf_threshold=0.98, invert=False):
     blurred = []
+    
+    img_rgb  = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-    for i in range(detections.shape[2]):
-        confidence = detections[0, 0, i, 2]
+    # generate masks
+    masks = detection_model.generate(img_rgb)
+    masks = [m for m in masks if m['stability_score'] > conf_threshold]
 
-        if confidence > conf_threshold:
-            box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
-            (x1, y1, x2, y2) = box.astype("int")
+    for mask in masks:
+        segmentation = mask["segmentation"]
+        y_indices, x_indices = np.where(segmentation)
+        x1, x2 = x_indices.min(), x_indices.max()
+        y1, y2 = y_indices.min(), y_indices.max()
 
-            b = blur(img, y1, y2, x1, x2)
-            blurred.append(b)
+        b = blur(img, y1, y2, x1, x2, invert=invert)
+        blurred.append(b)
 
     return blurred
