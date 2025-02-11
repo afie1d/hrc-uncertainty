@@ -1,6 +1,6 @@
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-
+import numpy as np
 
 def semantic_similarity(text1, text2, model):
     doc1 = model(text1)
@@ -14,7 +14,7 @@ def cosine_similarity_tfidf(text1, text2):
     return similarity[0][0]
 
 
-def pairwise_diff(responses):
+def pairwise_similarity(responses):
     diffs = []
     for i, r in enumerate(responses):
         for j in range(len(responses)):
@@ -22,3 +22,7 @@ def pairwise_diff(responses):
             diffs.append(cosine_similarity_tfidf(r, responses[j]))
 
     return diffs
+
+def uncertainty_score(responses):
+    sims = pairwise_similarity(responses)
+    return 1 / np.mean(sims)

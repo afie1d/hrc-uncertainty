@@ -38,8 +38,7 @@ def scale(img, scale_factor):
     return scaled_img
 
 
-def non_semantic_transform(img_path, n=16):
-    img = cv2.imread(img_path)
+def non_semantic_transform(img, n=16):
     transformed = []
 
     for _ in range(n):
@@ -113,11 +112,10 @@ def systematic_blur(img, num_rows=4, num_columns=4, patch_size=(256, 256), inver
 
 def load_det_model():
     sam_checkpoint = "../models/SAM/sam_vit_h_4b8939.pth"
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    sam = sam_model_registry["vit_h"](checkpoint=sam_checkpoint).to(device)
+    sam = sam_model_registry["vit_h"](checkpoint=sam_checkpoint)
     return SamAutomaticMaskGenerator(sam)
 
-def object_blur(img, detection_model, conf_threshold=0.98, invert=False):
+def object_blur(img, detection_model, conf_threshold=0.98, invert=False, max_objects=16):
     blurred = []
     
     img_rgb  = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -125,6 +123,10 @@ def object_blur(img, detection_model, conf_threshold=0.98, invert=False):
     # generate masks
     masks = detection_model.generate(img_rgb)
     masks = [m for m in masks if m['stability_score'] > conf_threshold]
+
+    if len(masks) > max_objects:
+        sorted_masks = sorted(masks, key=lambda x: x['stability_score'], reverse=True)
+        masks = sorted_masks[:max_objects]
 
     for mask in masks:
         segmentation = mask["segmentation"]
@@ -136,3 +138,4 @@ def object_blur(img, detection_model, conf_threshold=0.98, invert=False):
         blurred.append(b)
 
     return blurred
+
