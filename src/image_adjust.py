@@ -89,11 +89,13 @@ def random_blur(img, num_imgs=16, patch_size=(256, 256), invert=False):
     return blurred   
 
 
-def systematic_blur(img, num_rows=4, num_columns=4, patch_size=(256, 256), invert=False):
+def systematic_blur(img, num_rows=4, num_columns=4, invert=False):
     blurred = []
-    (h, w) = img.shape[:2]
+    (h, w) = img.shape[:2] 
     x_spacing = w // num_columns
     y_spacing = h // num_rows
+    patch_lenth = min(x_spacing, y_spacing)
+    patch_size = (patch_lenth, patch_lenth)
 
     for r in range(num_rows):
         for c in range(num_columns):
