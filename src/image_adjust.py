@@ -43,15 +43,15 @@ def non_semantic_transform(img, n=16):
 
     for _ in range(n):
         cpy = img.copy()
-        brightness = random.uniform(0.8, 1.2)
-        contrast = random.uniform(0.8, 1.2)
-        saturation = random.uniform(0.8, 1.2)
+        brightness = random.uniform(0.5, 1.5)
+        contrast = random.uniform(0.5, 1.5)
+        saturation = random.uniform(0.5, 1.5)
         cpy = color_jitter(cpy, brightness, contrast, saturation)
 
-        angle = random.uniform(-15, 15)
+        angle = random.uniform(-25, 25)
         cpy = rotate(cpy, angle)
 
-        scale_factor = random.uniform(0.8, 1.2)
+        scale_factor = random.uniform(0.5, 1.5)
         cpy = scale(cpy, scale_factor)
 
         transformed.append(cpy)
