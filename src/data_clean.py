@@ -1,24 +1,53 @@
 import os
 import json
 
-img_dir = '/home/fieldaj1/thesis/data/VQA2.0/img'
-path = '/home/fieldaj1/thesis/data/VQA2.0'
-min_amb_votes = 4
+img_dir = '/home/fieldaj1/thesis/data/BinaryScenes/scene_img_abstract_v002_val2017'
+question_file = '/home/fieldaj1/thesis/data/BinaryScenes/OpenEnded_abstract_v002_val2017_questions.json'
+ans_file = '/home/fieldaj1/thesis/data/BinaryScenes/abstract_v002_val2017_annotations.json'
 removed = 0
 
-for f_name in os.listdir(path):
-    if not f_name.endswith('json'): continue
-    json_file = os.path.join(path, f_name)
-
-    with open(json_file) as f:
+def get_question(img_id, question_file):
+    with open(question_file, 'r') as f:
         data = json.load(f)
+        questions = data.get('questions')
+        for q in questions:
+            if q.get("image_id") == img_id:
+                return q.get("question")
+        
+        return None # couldn't find question for the given image id
+    
 
-        for obj in data:
-            ans_diff_labels = obj.get('ans_diff_labels')
-            img_path = os.path.join(img_dir, obj.get('image'))
-            if os.path.exists(img_path) and ans_diff_labels[4] < min_amb_votes:
-                os.remove(img_path)
-                print("Removed", img_path)
-                removed += 1
+def get_answer(img_id, ans_file):
+    with open(ans_file, 'r') as f:
+        data = json.load(f)
+        annotations = data.get('annotations')
+        for a in annotations:
+            if a.get("image_id") == img_id:
+                answers = a.get("answers")
+                yes_count = 0; no_count = 0
+                for answer in answers:
+                    if answer.get("answer") == "yes":
+                        yes_count += 1
+                    else:
+                        no_count += 1
 
-print("Removed", removed, " total images")
+                if yes_count > no_count:
+                    ans = 'yes'
+                    confidence = yes_count / (yes_count + no_count)
+                else:
+                    ans = 'no'
+                    confidence = no_count / (yes_count + no_count)
+                
+                return ans
+        
+        return None
+    
+for img in os.listdir(img_dir):
+    img_id = int(img.strip('.png')[-12:].strip('0'))
+    q = get_question(img_id, question_file)
+    a = get_answer(img_id, ans_file)
+    if not(q and a):
+        os.remove(os.path.join(img_dir, img))
+        removed += 1
+
+print("Number of images removed:", removed)

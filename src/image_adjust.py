@@ -38,20 +38,20 @@ def scale(img, scale_factor):
     return scaled_img
 
 
-def non_semantic_transform(img, n=16):
+def non_semantic_transform(img, n=16, scale_range=(0.8, 0.12), rotation=15):
     transformed = []
 
     for _ in range(n):
         cpy = img.copy()
-        brightness = random.uniform(0.5, 1.5)
-        contrast = random.uniform(0.5, 1.5)
-        saturation = random.uniform(0.5, 1.5)
+        brightness = random.uniform(scale_range[0], scale_range[1])
+        contrast = random.uniform(scale_range[0], scale_range[1])
+        saturation = random.uniform(scale_range[0], scale_range[1])
         cpy = color_jitter(cpy, brightness, contrast, saturation)
 
-        angle = random.uniform(-25, 25)
+        angle = random.uniform(-rotation, rotation)
         cpy = rotate(cpy, angle)
 
-        scale_factor = random.uniform(0.5, 1.5)
+        scale_factor = random.uniform(scale_range[0], scale_range[1])
         cpy = scale(cpy, scale_factor)
 
         transformed.append(cpy)
