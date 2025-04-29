@@ -1,5 +1,6 @@
 import os
 import json
+import random
 
 img_dir = '/home/fieldaj1/thesis/data/BinaryScenes/scene_img_abstract_v002_val2017'
 question_file = '/home/fieldaj1/thesis/data/BinaryScenes/OpenEnded_abstract_v002_val2017_questions.json'
@@ -38,16 +39,16 @@ def get_answer(img_id, ans_file):
                     ans = 'no'
                     confidence = no_count / (yes_count + no_count)
                 
-                return ans
+                return confidence
         
         return None
     
 for img in os.listdir(img_dir):
     img_id = int(img.strip('.png')[-12:].strip('0'))
-    q = get_question(img_id, question_file)
-    a = get_answer(img_id, ans_file)
-    if not(q and a):
+    c = get_answer(img_id, ans_file)
+    if (c >= 0.9 and random.random() > 0.4):
         os.remove(os.path.join(img_dir, img))
+        print("Removed", img_id)
         removed += 1
 
 print("Number of images removed:", removed)

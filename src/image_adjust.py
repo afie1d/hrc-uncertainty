@@ -43,16 +43,25 @@ def non_semantic_transform(img, n=16, scale_range=(0.8, 0.12), rotation=15):
 
     for _ in range(n):
         cpy = img.copy()
+
+        # color jitter
         brightness = random.uniform(scale_range[0], scale_range[1])
         contrast = random.uniform(scale_range[0], scale_range[1])
         saturation = random.uniform(scale_range[0], scale_range[1])
         cpy = color_jitter(cpy, brightness, contrast, saturation)
 
+        # rotation
         angle = random.uniform(-rotation, rotation)
         cpy = rotate(cpy, angle)
 
+        # scaling
         scale_factor = random.uniform(scale_range[0], scale_range[1])
         cpy = scale(cpy, scale_factor)
+
+        # noise
+        noise = np.random.randint(0, 256, (cpy.shape[0], cpy.shape[1], 3), dtype=np.uint8)
+        overlay = 0.1 * noise + 0.9 * cpy
+        cpy = np.clip(overlay, 0, 255).astype(np.uint8)
 
         transformed.append(cpy)
 
