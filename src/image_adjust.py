@@ -38,7 +38,7 @@ def scale(img, scale_factor):
     return scaled_img
 
 
-def non_semantic_transform(img, n=16, scale_range=(0.8, 0.12), rotation=15):
+def non_semantic_transform(img, n=16, scale_range=(0.8, 1.2), rotation=15):
     transformed = []
 
     for _ in range(n):
@@ -60,7 +60,7 @@ def non_semantic_transform(img, n=16, scale_range=(0.8, 0.12), rotation=15):
 
         # noise
         noise = np.random.randint(0, 256, (cpy.shape[0], cpy.shape[1], 3), dtype=np.uint8)
-        overlay = 0.1 * noise + 0.9 * cpy
+        overlay = 0.2 * noise + 0.8 * cpy
         cpy = np.clip(overlay, 0, 255).astype(np.uint8)
 
         transformed.append(cpy)
@@ -136,17 +136,12 @@ def object_blur(img, detection_model, conf_threshold=0.98, invert=False, max_obj
     masks = [m for m in masks if m['stability_score'] > conf_threshold]
 
     if len(masks) > max_objects:
-        sorted_masks = sorted(masks, key=lambda x: x['stability_score'], reverse=True)
+        sorted_masks = sorted(masks, key=lambda x: x['area'], reverse=True)
         masks = sorted_masks[:max_objects]
 
     for mask in masks:
-        segmentation = mask["segmentation"]
-        y_indices, x_indices = np.where(segmentation)
-        x1, x2 = x_indices.min(), x_indices.max()
-        y1, y2 = y_indices.min(), y_indices.max()
-
-        b = blur(img, y1, y2, x1, x2, invert=invert)
+        x, y, w, h = mask['bbox']
+        b = blur(img, y, y+h, x, x+w, invert=invert)
         blurred.append(b)
 
     return blurred
-
