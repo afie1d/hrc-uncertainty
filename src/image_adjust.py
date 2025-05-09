@@ -83,7 +83,7 @@ def blur(img, y1, y2, x1, x2, kernel_size=(127, 127), invert=False):
 
     return cpy
 
-def random_blur(img, num_imgs=16, patch_size=(256, 256), invert=False):
+def random_blur(img, num_imgs=16, patch_size=(128, 128), invert=False):
     blurred = []
 
     for _ in range(num_imgs):

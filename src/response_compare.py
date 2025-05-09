@@ -1,6 +1,5 @@
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from sentence_transformers import SentenceTransformer
 import torch
 import numpy as np
 
@@ -21,7 +20,7 @@ def pairwise_similarity(responses, model):
     for i, r in enumerate(responses):
         for j in range(len(responses)):
             if i == j: continue
-            diffs.append(cosine_similarity_tfidf(r, responses[j]))
+            diffs.append(sentence_similarity(r, responses[j], model))
 
     return diffs
 
